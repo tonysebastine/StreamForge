@@ -1,0 +1,6 @@
+#!/bin/bash
+set -u
+rc=0
+for c in ffmpeg ffprobe streamlink yt-dlp curl python3 systemctl; do command -v "$c" >/dev/null 2>&1 && echo "OK $c" || { echo "MISS $c"; rc=1; }; done
+for f in /etc/streamforge/streamforge.env /etc/streamforge/stream-keys.env; do [ -r "$f" ] && echo "OK $f" || echo "INFO $f not configured"; done
+exit "$rc"
