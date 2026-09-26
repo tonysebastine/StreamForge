@@ -1,0 +1,17 @@
+#!/bin/bash
+set -euo pipefail
+source /etc/streamforge/streamforge.env
+source /etc/streamforge/stream-keys.env
+SOURCE="https://www.twitch.tv/$TWITCH_CHANNEL"
+QUALITY="\${TWITCH_QUALITY:-best}"
+mkdir -p "$STREAMFORGE_DATA/recordings" "$STREAMFORGE_LOG"
+parts=()
+[ -n "\${YOUTUBE_RTMP_URL:-}" ] && parts+=("[f=fifo:fifo_format=flv:attempt_recovery=1:recover_any_error=1:recovery_wait_time=5:onfail=ignore]$YOUTUBE_RTMP_URL")
+[ -n "\${KICK_RTMP_URL:-}" ] && parts+=("[f=fifo:fifo_format=flv:attempt_recovery=1:recover_any_error=1:recovery_wait_time=5:onfail=ignore]$KICK_RTMP_URL")
+[ -n "\${INSTAGRAM_RTMP_URL:-}" ] && parts+=("[f=fifo:fifo_format=flv:attempt_recovery=1:recover_any_error=1:recovery_wait_time=5:onfail=ignore]$INSTAGRAM_RTMP_URL")
+[ "\${#parts[@]}" -gt 0 ] || { echo "No RTMP destinations configured" >&2; exit 2; }
+TEE=$(IFS='|'; echo "\${parts[*]}")
+while true; do
+streamlink --loglevel info --twitch-disable-reruns --twitch-disable-hosting --stdout "$SOURCE" "$QUALITY" 2>>"$STREAMFORGE_LOG/live.log" | ffmpeg -hide_banner -loglevel warning -fflags +genpts -i pipe:0 -map 0:v:0 -map 0:a:0? -c:v copy -c:a copy -f tee "$TEE" >>"$STREAMFORGE_LOG/live.log" 2>&1 || true
+sleep 10
+done
