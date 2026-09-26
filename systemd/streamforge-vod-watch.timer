@@ -1,0 +1,8 @@
+[Unit]
+Description=Check StreamForge VOD queue
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+[Install]
+WantedBy=timers.target
