@@ -39,7 +39,7 @@ make_clip "$ROOT/assets/outro.mp4" 3 "STREAMFORGE OUTRO"
 
 # Run the real public assembler with an isolated config path.
 # No /etc/streamforge and no /opt/restream paths are used.
-env STREAMFORGE_CONFIG="$CONF" bash -c '
+env STREAMFORGE_CONFIG="$CONF" STREAMFORGE_VOD_LOCK="$ROOT/vod.lock" bash -c '
   source "$STREAMFORGE_CONFIG"
   export STREAMFORGE_HOME STREAMFORGE_DATA STREAMFORGE_LOG
   exec "'"$ASSEMBLER"'" "'"$ROOT/recordings/sample.mp4"'"
