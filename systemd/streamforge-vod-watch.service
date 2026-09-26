@@ -1,0 +1,10 @@
+[Unit]
+Description=StreamForge VOD watcher
+[Service]
+Type=oneshot
+User=streamforge
+ExecStart=/opt/streamforge/bin/vod-watch.sh
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/streamforge /var/log/streamforge
