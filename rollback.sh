@@ -18,13 +18,11 @@ cp -a "$BACKUP_DIR/." "$TMP_DIR/config/"
 chmod -R go-rwx "$TMP_DIR/config"
 
 echo "Restoring previous StreamForge code"
-[ -d "$INSTALL_DIR/.git" ] || { echo "Rollback requires a git checkout at $INSTALL_DIR"; exit 1; }
-git -C "$INSTALL_DIR" log -1 --format='%H' > "$TMP_DIR/current-commit"
-git -C "$INSTALL_DIR" reflog --format='%H' -n 2 >/dev/null
-PREV="$(git -C "$INSTALL_DIR" rev-parse HEAD@{1} 2>/dev/null || true)"
-[ -n "$PREV" ] || { echo "No previous Git revision available"; exit 1; }
-git -C "$INSTALL_DIR" reset --hard "$PREV"
-git -C "$INSTALL_DIR" clean -fdx
+[ -d "$BACKUP_DIR/code" ] || { echo "Code backup not found in $BACKUP_DIR"; exit 1; }
+rm -rf "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR"
+rsync -a --delete "$BACKUP_DIR/code/" "$INSTALL_DIR/"
+chmod +x "$INSTALL_DIR"/bin/*
 cp "$INSTALL_DIR"/systemd/*.service "$INSTALL_DIR"/systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
 
