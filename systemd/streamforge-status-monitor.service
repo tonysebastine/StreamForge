@@ -1,0 +1,6 @@
+[Unit]
+Description=StreamForge status check
+[Service]
+Type=oneshot
+User=streamforge
+ExecStart=/opt/streamforge/bin/streamforge-check
