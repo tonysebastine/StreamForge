@@ -1,0 +1,17 @@
+[Unit]
+Description=StreamForge live relay
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=streamforge
+ExecStart=/opt/streamforge/bin/restream-live
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/streamforge /var/log/streamforge
+[Install]
+WantedBy=multi-user.target
