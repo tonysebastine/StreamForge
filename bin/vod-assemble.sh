@@ -16,7 +16,16 @@ cleanup(){ rc=$?; [ "$rc" -eq 0 ] && rm -rf "$WORK" || log "Failure; preserving 
 read -r W H FPS < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -of csv=p=0 "$INPUT" | awk -F, '{split($3,a,"/"); if(a[2]==0)a[2]=1; printf "%d %d %.6f\n",$1,$2,a[1]/a[2]}')
 [ -n "${W:-}" ] && [ -n "${H:-}" ] && [ -n "${FPS:-}" ] || fail "Could not read video parameters"
 
-normalize(){ local input="$1" output="$2"; local vf="scale=$W:$H:force_original_aspect_ratio=decrease,pad=$W:$H:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=$FPS"; if ffprobe -v error -select_streams a:0 -show_entries stream=index -of csv=p=0 "$input" | grep -q .; then ffmpeg -hide_banner -loglevel warning -y -i "$input" -vf "$vf" -c:v libx264 -preset veryfast -pix_fmt yuv420p -r "$FPS" -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$output"; else log "No audio stream in $(basename "$input"); adding silent audio"; ffmpeg -hide_banner -loglevel warning -y -i "$input" -f lavfi -i "anullsrc=r=48000:cl=stereo" -vf "$vf" -map 0:v:0 -map 1:a:0 -shortest -c:v libx264 -preset veryfast -pix_fmt yuv420p -r "$FPS" -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$output"; fi; }
+normalize(){
+  local input="$1" output="$2"
+  local vf="scale=$W:$H:force_original_aspect_ratio=decrease,pad=$W:$H:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=$FPS"
+  if ffprobe -v error -select_streams a:0 -show_entries stream=index -of csv=p=0 "$input" | grep -q .; then
+    ffmpeg -hide_banner -loglevel warning -y -i "$input" -vf "$vf" -c:v libx264 -preset veryfast -pix_fmt yuv420p -r "$FPS" -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$output"
+  else
+    log "No audio stream in $(basename "$input"); adding silent audio"
+    ffmpeg -hide_banner -loglevel warning -y -i "$input" -f lavfi -i "anullsrc=r=48000:cl=stereo" -vf "$vf" -map 0:v:0 -map 1:a:0 -shortest -c:v libx264 -preset veryfast -pix_fmt yuv420p -r "$FPS" -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$output"
+  fi
+}
 log "Normalizing intro"; normalize "$ASSETS/intro.mp4" "$WORK/intro.mp4"
 log "Normalizing recording"; normalize "$INPUT" "$WORK/recording.mp4"
 log "Normalizing outro"; normalize "$ASSETS/outro.mp4" "$WORK/outro.mp4"
@@ -25,7 +34,7 @@ REC_D=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$W
 OFFSET1=$(awk -v d="$INTRO_D" 'BEGIN{v=d-1;if(v<0)v=0;printf "%.6f",v}')
 OFFSET2=$(awk -v a="$INTRO_D" -v b="$REC_D" 'BEGIN{v=a+b-2;if(v<0)v=0;printf "%.6f",v}')
 log "Applying exactly 1-second intro-to-video and video-to-outro crossfades"
-ffmpeg -hide_banner -loglevel warning -y -i "$WORK/intro.mp4" -i "$WORK/recording.mp4" -i "$WORK/outro.mp4" -filter_complex "[0:v]settb=AVTB,setpts=PTS-STARTPTS[v0];[1:v]settb=AVTB,setpts=PTS-STARTPTS[v1];[2:v]settb=AVTB,setpts=PTS-STARTPTS[v2];[0:a]aresample=48000,asetpts=PTS-STARTPTS[a0];[1:a]aresample=48000,asetpts=PTS-STARTPTS[a1];[2:a]aresample=48000,asetpts=PTS-STARTPTS[a2];[v0][v1]xfade=transition=fade:duration=1:offset=$OFFSET1[v01];[v01][v2]xfade=transition=fade:duration=1:offset=$OFFSET2[vout];[a0][a1]acrossfade=d=1:c1=tri:c2=tri[a01];[a01][a2]acrossfade=d=1:c1=tri:c2=tri[aout]" -map "[vout]" -map "[aout]" -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$OUTPUT"
+ffmpeg -hide_banner -loglevel warning -y -i "$WORK/intro.mp4" -i "$WORK/recording.mp4" -i "$WORK/outro.mp4" -filter_complex "[0:v]settb=AVTB,setpts=PTS-STARTPTS,fps=$FPS[v0];[1:v]settb=AVTB,setpts=PTS-STARTPTS,fps=$FPS[v1];[2:v]settb=AVTB,setpts=PTS-STARTPTS,fps=$FPS[v2];[0:a]aresample=48000,asetpts=PTS-STARTPTS[a0];[1:a]aresample=48000,asetpts=PTS-STARTPTS[a1];[2:a]aresample=48000,asetpts=PTS-STARTPTS[a2];[v0][v1]xfade=transition=fade:duration=1:offset=$OFFSET1[v01];[v01][v2]xfade=transition=fade:duration=1:offset=$OFFSET2[vout];[a0][a1]acrossfade=d=1:c1=tri:c2=tri[a01];[a01][a2]acrossfade=d=1:c1=tri:c2=tri[aout]" -map "[vout]" -map "[aout]" -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$OUTPUT"
 ffprobe -v error -show_entries format=duration,size -show_entries stream=index,codec_name,codec_type,width,height,r_frame_rate,sample_rate,channels -of default=noprint_wrappers=1 "$OUTPUT" | tee -a "$LOG"
 ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$OUTPUT" | grep -qx h264 || fail "Video validation failed"
 ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$OUTPUT" | grep -qx aac || fail "Audio validation failed"
