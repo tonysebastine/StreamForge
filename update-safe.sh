@@ -38,16 +38,26 @@ if [ -x "$TMP_DIR/bin/vod-dry-run.sh" ]; then
   STREAMFORGE_DRYRUN_SCRIPT_DIR="$TMP_DIR/bin" "$TMP_DIR/bin/vod-dry-run.sh"
 fi
 
+echo "Backing up current StreamForge code"
+mkdir -p "$BACKUP_DIR/code"
+rsync -a --delete --exclude=".git" "$INSTALL_DIR/" "$BACKUP_DIR/code/"
+
 echo "Installing candidate without touching $CONFIG_DIR"
 mkdir -p "$INSTALL_DIR"
-rsync -a --delete --exclude='.git' "$TMP_DIR/" "$INSTALL_DIR/"
+rsync -a --delete --exclude=".git" "$TMP_DIR/" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR"/bin/*
 cp "$INSTALL_DIR"/systemd/*.service "$INSTALL_DIR"/systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
 
 echo "Revalidating installed version"
 "$INSTALL_DIR/bin/streamforge-check" || {
-  echo "Installed validation failed; restoring code only from backup is not automatic." >&2
+  echo "Installed validation failed; restoring previous code automatically" >&2
+  rm -rf "$INSTALL_DIR"
+  mkdir -p "$INSTALL_DIR"
+  rsync -a --delete --exclude=".git" "$BACKUP_DIR/code/" "$INSTALL_DIR/"
+  chmod +x "$INSTALL_DIR"/bin/*
+  cp "$INSTALL_DIR"/systemd/*.service "$INSTALL_DIR"/systemd/*.timer /etc/systemd/system/
+  systemctl daemon-reload
   exit 1
 }
 
