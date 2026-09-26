@@ -7,23 +7,23 @@ LOCK="${STREAMFORGE_VOD_LOCK:-/run/lock/streamforge-vod-assemble.lock}"
 mkdir -p "$REC" "$FINAL" "$(dirname "$LOG")"; exec 9>"$LOCK"; flock -n 9 || { echo "VOD assembly already running" >&2; exit 1; }
 log(){ echo "[$(date '+%F %T')] $*" | tee -a "$LOG"; }; fail(){ log "ERROR: $*"; exit 1; }
 INPUT="${1:-}"
-if [ -z "$INPUT" ]; then INPUT=$(find "$REC" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.ts' -o -iname '*.m4v' -o -iname '*.webm' \) -printf '%T@ %p
-' | sort -nr | head -1 | cut -d' ' -f2-); fi
+if [ -z "$INPUT" ]; then INPUT=$(find "$REC" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.ts' -o -iname '*.m4v' -o -iname '*.webm' \) -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-); fi
 [ -n "$INPUT" ] && [ -f "$INPUT" ] || fail "No VOD recording found"
 [ -f "$ASSETS/intro.mp4" ] && [ -f "$ASSETS/outro.mp4" ] || fail "Missing intro.mp4 or outro.mp4"
 NAME=$(basename "${INPUT%.*}"); OUTPUT="$FINAL/${NAME}-with-intro-outro.mp4"; WORK="$FINAL/.work-$NAME"
 [ -f "$OUTPUT" ] && { log "Output already exists: $OUTPUT"; exit 0; }; mkdir -p "$WORK"
 cleanup(){ rc=$?; [ "$rc" -eq 0 ] && rm -rf "$WORK" || log "Failure; preserving $WORK"; }; trap cleanup EXIT
-read -r W H FPS < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -of csv=p=0 "$INPUT" | awk -F, '{split($3,a,"/"); if(a[2]==0)a[2]=1; printf "%d %d %.6f
-",$1,$2,a[1]/a[2]}')
+read -r W H FPS < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -of csv=p=0 "$INPUT" | awk -F, '{split($3,a,"/"); if(a[2]==0)a[2]=1; printf "%d %d %.6f\n",$1,$2,a[1]/a[2]}')
 [ -n "${W:-}" ] && [ -n "${H:-}" ] && [ -n "${FPS:-}" ] || fail "Could not read video parameters"
+
 normalize(){
   local input="$1" output="$2"
+  local vf="scale=$W:$H:force_original_aspect_ratio=decrease,pad=$W:$H:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=$FPS"
   if ffprobe -v error -select_streams a:0 -show_entries stream=index -of csv=p=0 "$input" | grep -q .; then
-    ffmpeg -hide_banner -loglevel warning -y -i "$input" -vf "scale=$W:$H:force_original_aspect_ratio=decrease,pad=$W:$H:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=$FPS" -c:v libx264 -preset veryfast -pix_fmt yuv420p -r "$FPS" -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$output"
+    ffmpeg -hide_banner -loglevel warning -y -i "$input" -vf "$vf" -c:v libx264 -preset veryfast -pix_fmt yuv420p -r "$FPS" -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$output"
   else
     log "No audio stream in $(basename "$input"); adding silent audio"
-    ffmpeg -hide_banner -loglevel warning -y -i "$input" -f lavfi -i "anullsrc=r=48000:cl=stereo" -vf "scale=$W:$H:force_original_aspect_ratio=decrease,pad=$W:$H:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=$FPS" -map 0:v:0 -map 1:a:0 -shortest -c:v libx264 -preset veryfast -pix_fmt yuv420p -r "$FPS" -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$output"
+    ffmpeg -hide_banner -loglevel warning -y -i "$input" -f lavfi -i "anullsrc=r=48000:cl=stereo" -vf "$vf" -map 0:v:0 -map 1:a:0 -shortest -c:v libx264 -preset veryfast -pix_fmt yuv420p -r "$FPS" -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart "$output"
   fi
 }
 log "Normalizing intro"; normalize "$ASSETS/intro.mp4" "$WORK/intro.mp4"
