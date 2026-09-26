@@ -1,0 +1,6 @@
+[Unit]
+Description=StreamForge disk monitor
+[Service]
+Type=oneshot
+User=streamforge
+ExecStart=/opt/streamforge/bin/disk-monitor.sh
