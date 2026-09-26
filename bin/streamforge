@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+case "\${1:-status}" in
+setup) echo "Configure /etc/streamforge/*.env and add licensed intro/outro assets.";;
+check) exec /opt/streamforge/bin/streamforge-check;;
+status) systemctl --no-pager --plain status streamforge-live.service 2>/dev/null || true;;
+start) exec systemctl start streamforge-live.service;;
+stop) exec systemctl stop streamforge-live.service;;
+restart) exec systemctl restart streamforge-live.service;;
+logs) exec journalctl -u streamforge-live.service -n 100 --no-pager;;
+*) echo "Usage: streamforge {setup|check|status|start|stop|restart|logs}"; exit 2;;
+esac
