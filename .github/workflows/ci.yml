@@ -1,0 +1,33 @@
+name: StreamForge CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  shell-and-vod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg shellcheck
+      - name: Shell syntax
+        run: |
+          set -e
+          for f in bin/*.sh bin/streamforge install.sh update.sh uninstall.sh; do
+            bash -n "$f"
+          done
+      - name: ShellCheck
+        run: |
+          shellcheck bin/*.sh install.sh update.sh uninstall.sh
+      - name: Isolated VOD dry-run
+        run: |
+          mkdir -p /tmp/streamforge-install/bin
+          cp bin/vod-assemble.sh /tmp/streamforge-install/bin/
+          chmod +x /tmp/streamforge-install/bin/vod-assemble.sh
+          STREAMFORGE_DRYRUN_SCRIPT_DIR=/tmp/streamforge-install/bin             bin/vod-dry-run.sh
+      - name: Verify no production path references
+        run: |
+          ! grep -RIn --exclude-dir=.git --exclude='*.md' '/opt/restream' .
