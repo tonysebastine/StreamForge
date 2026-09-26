@@ -1,8 +1,9 @@
 #!/bin/bash
 set -euo pipefail
-source /etc/streamforge/streamforge.env
+CONFIG="${STREAMFORGE_CONFIG:-/etc/streamforge/streamforge.env}"
+source "$CONFIG"
 REC="$STREAMFORGE_DATA/recordings"; ASSETS="$STREAMFORGE_HOME/assets"; FINAL="$STREAMFORGE_DATA/final"; LOG="$STREAMFORGE_LOG/vod-assemble.log"
-LOCK=/run/lock/streamforge-vod-assemble.lock
+LOCK="${STREAMFORGE_VOD_LOCK:-/run/lock/streamforge-vod-assemble.lock}"
 mkdir -p "$REC" "$FINAL" "$(dirname "$LOG")"; exec 9>"$LOCK"; flock -n 9 || { echo "VOD assembly already running" >&2; exit 1; }
 log(){ echo "[$(date '+%F %T')] $*" | tee -a "$LOG"; }; fail(){ log "ERROR: $*"; exit 1; }
 INPUT="${1:-}"
