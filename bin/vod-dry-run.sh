@@ -34,7 +34,7 @@ make_clip() {
 
 echo "Creating isolated sample media under $ROOT"
 make_clip "$ROOT/assets/intro.mp4" 3 "STREAMFORGE INTRO"
-make_clip "$ROOT/recordings/sample.mp4" 5 "STREAMFORGE MAIN"
+"$BIN" -hide_banner -loglevel error -y -f lavfi -i "color=c=black:s=640x360:r=30:d=5" -vf "drawtext=text='STREAMFORGE MAIN (NO AUDIO)':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=(h-text_h)/2" -c:v libx264 -preset ultrafast -pix_fmt yuv420p "$ROOT/recordings/sample.mp4"
 make_clip "$ROOT/assets/outro.mp4" 3 "STREAMFORGE OUTRO"
 
 # Run the real public assembler with an isolated config path.
@@ -55,9 +55,9 @@ DURATION=$("$PROBE" -v error -show_entries format=duration -of csv=p=0 "$OUT")
 [ "$VIDEO_CODEC" = h264 ] || die "unexpected video codec: $VIDEO_CODEC"
 [ "$AUDIO_CODEC" = aac ] || die "unexpected audio codec: $AUDIO_CODEC"
 
-# 3 + 5 + 3 seconds with two 1-second transitions => approximately 10 seconds.
-awk -v d="$DURATION" 'BEGIN { if (d < 9.8 || d > 10.2) exit 1 }' ||
-  die "unexpected output duration: $DURATION (expected about 10 seconds)"
+# 3 + 5 + 3 seconds with two 1-second transitions => approximately 9 seconds.
+awk -v d="$DURATION" 'BEGIN { if (d < 8.8 || d > 9.2) exit 1 }' ||
+  die "unexpected output duration: $DURATION (expected about 9 seconds)"
 
 echo
 echo "DRY-RUN PASSED"
